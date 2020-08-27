@@ -1,64 +1,76 @@
 package dog.shebang.todo
 
+import android.content.ContentValues.TAG
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.asLiveData
+import androidx.lifecycle.observe
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import dog.shebang.todo.data.TodoService
 import dog.shebang.todo.data.UserService
 import dog.shebang.todo.data.model.Todo
 import dog.shebang.todo.databinding.ActivityMainBinding
-import android.content.ContentValues.TAG
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
 
 class MainActivity : AppCompatActivity() {
-    private val firebaseAuth: FirebaseAuth by lazy { Firebase.auth }
-    private val firestore: FirebaseFirestore by lazy { Firebase.firestore }
+    private val viewModel by viewModels<MainViewModel>()
 
     private lateinit var binding: ActivityMainBinding
-
-    private var currentUser: FirebaseUser? = null
 
     override fun onStart() {
         super.onStart()
 
-        currentUser = firebaseAuth.currentUser ?: return
-        Log.d(TAG, "sign in ${currentUser?.email}")
+//        viewModel.currentUser.observe(this) {
+//            Log.d(TAG, "sign in ${it.email}")
+//        }
+
+        viewModel.onStart()
     }
 
+    @ExperimentalCoroutinesApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
         with(binding) {
+
+//            viewModel.uid.observe(this@MainActivity) {
+//                Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT)
+//            }
+
+//            viewModel.todo.observe(this@MainActivity) {
+//                todoContents.text = it.contents
+//            }
+
+            viewModel.reload()?.asLiveData()?.observe(this@MainActivity) {
+                todoContents.text = it.contents
+            }
+
             floatingActionButton.setOnClickListener {
-                currentUser?.uid?.also {
-                    TodoService.insertTodo(firestore, it, Todo("lost princess", "first todo"))
-                    TodoService.fetchTodo(firestore, it)
-                }
+                viewModel.onClickFAB(
+                    Todo(emailEditText.text.toString(), passwordEditText.text.toString())
+                )
             }
 
             signUpButton.setOnClickListener {
-                UserService.createUser(
-                    firebaseAuth,
-                    emailEditText.text.toString(),
-                    passwordEditText.text.toString()
-                )
+                viewModel.onClickSignUp(emailEditText.text.toString(), passwordEditText.text.toString())
             }
 
             signInButton.setOnClickListener {
-                UserService.loginUser(
-                    firebaseAuth,
-                    emailEditText.text.toString(),
-                    passwordEditText.text.toString()
-                )
+                viewModel.onClickSignIn(emailEditText.text.toString(), passwordEditText.text.toString())
             }
+
+
+
         }
     }
 
